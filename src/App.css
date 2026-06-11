@@ -9,6 +9,12 @@
     width: 100%;
 }
 
+.hide-for-tv-player {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
 .fullscreen-overlay {
     position: fixed;
     top: 0;

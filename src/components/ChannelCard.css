@@ -26,6 +26,15 @@
     box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
 }
 
+.channel-card:focus:not(.expanded-card) {
+    background-color: #333;
+    border-color: var(--accent-blue);
+    transform: scale(1.05); /* En TV escalamos de forma exagerada para que salte a la vista */
+    outline: 8px solid var(--accent-blue) !important;
+    box-shadow: 0 0 40px var(--accent-blue) !important;
+    z-index: 10;
+}
+
 .expanded-card {
     position: fixed;
     top: 50%;

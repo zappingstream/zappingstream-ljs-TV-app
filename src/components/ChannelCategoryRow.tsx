@@ -1,5 +1,3 @@
-import { useState, useEffect } from 'react';
-import { useHorizontalScroll } from '../hooks/useHorizontalScroll';
 import type { Channel } from '../models/Channel';
 import { ChannelCard } from './ChannelCard';
 import './ChannelCategoryRow.css';
@@ -25,35 +23,6 @@ export const ChannelCategoryRow = ({
     abrirCanalOnDemand,
     navigateYouTube,
 }: ChannelCategoryProps) => {
-    const scrollRef = useHorizontalScroll();
-    const [canScrollLeft, setCanScrollLeft] = useState(false);
-    const [canScrollRight, setCanScrollRight] = useState(true);
-
-    const checkScroll = () => {
-        if (scrollRef.current) {
-            const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-            setCanScrollLeft(scrollLeft > 0);
-            setCanScrollRight(Math.ceil(scrollLeft) < scrollWidth - clientWidth - 1);
-        }
-    };
-
-    useEffect(() => {
-        checkScroll();
-        window.addEventListener('resize', checkScroll);
-
-        const observer = new MutationObserver(() => {
-            checkScroll();
-        });
-        if (scrollRef.current) {
-            observer.observe(scrollRef.current, { childList: true, subtree: true });
-        }
-
-        return () => {
-            window.removeEventListener('resize', checkScroll);
-            observer.disconnect();
-        };
-    }, [channels, expandedChannels]);
-
     if (!channels.length) return null;
 
     const canalesEnVivo = channels.filter(c => c.Actives && Object.keys(c.Actives).length > 0);
@@ -65,9 +34,7 @@ export const ChannelCategoryRow = ({
         <div key={title}>
             <h2 className="category-title">{title}</h2>
             <div className="scroll-wrapper category-scroll-wrapper">
-                <button className={`scroll-arrow left-arrow ${!canScrollLeft ? 'disabled' : ''}`} onClick={() => scrollRef.current?.scrollBy({ left: -window.innerWidth / 2, behavior: 'smooth' })}>‹</button>
-                
-                <div className="channel-row" ref={scrollRef} onScroll={checkScroll}>
+                <div className="channel-row">
                 {/* GRUPO EN VIVO */}
                 {canalesEnVivo.length > 0 && (
                     <div className="status-group">
@@ -118,8 +85,6 @@ export const ChannelCategoryRow = ({
                     </div>
                 )}
                 </div>
-
-                <button className={`scroll-arrow right-arrow ${!canScrollRight ? 'disabled' : ''}`} onClick={() => scrollRef.current?.scrollBy({ left: window.innerWidth / 2, behavior: 'smooth' })}>›</button>
             </div>
         </div>
     );

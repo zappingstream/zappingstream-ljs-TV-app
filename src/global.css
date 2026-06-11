@@ -25,19 +25,12 @@ html, body {
     user-select: none;
     overscroll-behavior: none; /* Bloquea los tirones y el refresco nativo en la PWA */
     -webkit-tap-highlight-color: transparent;
+    -ms-overflow-style: none; /* Ocultar barra en Edge TV */
+    scrollbar-width: none; /* Ocultar barra Firefox */
 }
 
-/* Scrollbar global (Aplicable a todo el sitio) */
 ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-}
-::-webkit-scrollbar-track {
-    background: var(--bg-panel);
-}
-::-webkit-scrollbar-thumb {
-    background-color: var(--accent-blue);
-    border-radius: 5px;
+    display: none !important; /* Totalmente invisibles en Smart TVs */
 }
 
 .submit-btn {
@@ -52,6 +45,15 @@ html, body {
     cursor: pointer;
     transition: background-color 0.3s, transform 0.1s;
     margin-top: 10px;
+}
+
+/* Focos visuales masivos para la navegación en D-PAD (control remoto) */
+*:focus {
+    outline: 6px solid var(--accent-blue) !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 25px var(--accent-blue) !important;
+    transition: all 0.2s ease;
+    z-index: 50;
 }
 
 .submit-btn:hover:not(:disabled) {

@@ -1,45 +1,14 @@
-import { useState, useMemo, useEffect, useRef, type RefObject } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import type { Channel, UpcomingVideo, ActiveVideo } from '../models/Channel';
 import { getFreshImage } from '../index';
 import { VideoCard } from './VideoCard';
 import { ChannelCard } from './ChannelCard';
-import { useHorizontalScroll } from '../hooks/useHorizontalScroll';
 import './ScheduleGrid.css';
 
 const EpgTrack = ({ row, navigateYouTube, onVideoError }: { row: any, navigateYouTube: (url: string) => void, onVideoError: (videoId: string) => void }) => {
-    const trackRef = useHorizontalScroll();
-    const [canScrollLeft, setCanScrollLeft] = useState(false);
-    const [canScrollRight, setCanScrollRight] = useState(true);
-
-    const checkScroll = () => {
-        if (trackRef.current) {
-            const { scrollLeft, scrollWidth, clientWidth } = trackRef.current;
-            setCanScrollLeft(scrollLeft > 0);
-            setCanScrollRight(Math.ceil(scrollLeft) < scrollWidth - clientWidth - 1);
-        }
-    };
-
-    useEffect(() => {
-        checkScroll();
-        window.addEventListener('resize', checkScroll);
-
-        const observer = new MutationObserver(() => {
-            checkScroll();
-        });
-        if (trackRef.current) {
-            observer.observe(trackRef.current, { childList: true, subtree: true });
-        }
-
-        return () => {
-            window.removeEventListener('resize', checkScroll);
-            observer.disconnect();
-        };
-    }, [row.events]);
-
     return (
         <div className="scroll-wrapper track-scroll-wrapper" style={{ flexGrow: 1, minWidth: 0 }}>
-            <button className={`scroll-arrow left-arrow ${!canScrollLeft ? 'disabled' : ''}`} onClick={() => trackRef.current?.scrollBy({ left: -300, behavior: 'smooth' })}>‹</button>
-            <div className="epg-events-track" ref={trackRef} onScroll={checkScroll}>
+            <div className="epg-events-track">
             {row.events.map((ev: any) => {
                 const formatTime = (dateStr?: string) => {
                     if (!dateStr) return "??:??";
@@ -64,7 +33,12 @@ const EpgTrack = ({ row, navigateYouTube, onVideoError }: { row: any, navigateYo
 
                 return (
                     <div key={ev.VideoId} className={`epg-card ${ev.Live ? 'is-live-card' : ''}`}>
-                        <div className="epg-card-inner" tabIndex={0} onClick={() => navigateYouTube(`https://www.youtube.com/watch?v=${ev.VideoId}`)}>
+                        <div 
+                            className="epg-card-inner" 
+                            tabIndex={0} 
+                            onClick={() => navigateYouTube(`https://www.youtube.com/watch?v=${ev.VideoId}`)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); navigateYouTube(`https://www.youtube.com/watch?v=${ev.VideoId}`); } }}
+                        >
                             <div className="timeline-channel-header epg-card-header">
                                 <span className={`time-badge epg-time-badge ${isNotNow ? 'inactive-time-badge' : ''}`}>{timeDetailsText}</span>
                             </div>
@@ -88,7 +62,6 @@ const EpgTrack = ({ row, navigateYouTube, onVideoError }: { row: any, navigateYo
                 );
             })}
             </div>
-            <button className={`scroll-arrow right-arrow ${!canScrollRight ? 'disabled' : ''}`} onClick={() => trackRef.current?.scrollBy({ left: 300, behavior: 'smooth' })}>›</button>
         </div>
     );
 };
@@ -128,7 +101,6 @@ export const ScheduleGrid = ({
     const today = useMemo(() => new Date(), []);
     const [selectedDate, setSelectedDate] = useState<Date>(today);
     const daysRailRef = useRef<HTMLDivElement>(null);
-    useHorizontalScroll<HTMLDivElement>(daysRailRef as RefObject<HTMLDivElement>);
 
     const [failedVideos, setFailedVideos] = useState<Set<string>>(new Set());
     const [failedChannels, setFailedChannels] = useState<Set<string>>(new Set());

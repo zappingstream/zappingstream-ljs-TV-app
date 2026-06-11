@@ -13,25 +13,13 @@
 .channel-row {
     display: flex;
     flex-wrap: nowrap;
-    overflow-x: auto;
+    overflow-x: hidden; /* Esto bloquea que la ruedita del mouse o el trackpad puedan scrollear */
     gap: 20px;
     width: 100%;
     max-width: 100%;
     min-width: 0;
     padding-bottom: 40px;
     padding-top: 5px;
-    cursor: grab;
-    user-select: none;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-}
-
-.channel-row:active {
-    cursor: grabbing;
-}
-
-.channel-row::-webkit-scrollbar {
-    display: none;
 }
 
 .category-scroll-wrapper .scroll-arrow {

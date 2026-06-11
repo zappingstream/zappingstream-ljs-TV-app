@@ -140,12 +140,23 @@ export const ChannelCard = ({
         </div>
     );
 
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (!isExpanded) {
+                if (isLiveGroup) abrirCanal(channel);
+                else abrirCanalOnStreams(channel);
+            }
+        }
+    };
+
     return (
         <div className="card-wrapper" style={cardStyle}>
             <div 
                 className={`channel-card ${isExpanded ? "expanded-card" : ""}`} 
                 tabIndex={0}
                 onClick={!isLiveGroup && !isExpanded ? () => abrirCanalOnStreams(channel) : undefined}
+                onKeyDown={handleKeyDown}
             >
                 {renderHeader()}
                 {isExpanded && renderExpandedBody()}

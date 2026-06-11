@@ -9,6 +9,7 @@ import { ChannelCategoryRow } from './components/ChannelCategoryRow';
 import { ScheduleGrid } from './components/ScheduleGrid';
 import { AppFooter } from './components/AppFooter';
 import { StatusDisplay } from './components/StatusDisplay';
+import { TVPlayer } from './components/TVPlayer';
 import './global.css';
 import './App.css';
 
@@ -23,6 +24,7 @@ export default function App() {
   const [viewMode, setViewMode] = useState<'cards' | 'grid'>('cards');
   const [selectedProvince, setSelectedProvince] = useState<string>("");
   const [selectedCity, setSelectedCity] = useState<string>("");
+  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
 
   // Restablecer el scroll al principio al cambiar de pestaña
   useEffect(() => {
@@ -76,7 +78,15 @@ export default function App() {
   const televisions = sortChannels(filteredChannels.filter(c => c.ChannelType?.toLowerCase().includes("television")));
   const personalStreams = sortChannels(filteredChannels.filter(c => c.ChannelType?.toLowerCase().includes("personal")));
 
-  const navigateYouTube = (url: string) => window.open(url, '_blank', 'noopener,noreferrer');
+  const navigateYouTube = (url: string) => {
+    // Intentar extraer el ID del video si existe para abrirlo en el reproductor interno
+    const match = url.match(/[?&]v=([^&]+)/) || url.match(/youtu\.be\/([^?]+)/);
+    if (match && match[1]) {
+      setPlayingVideoId(match[1]);
+    } else {
+      window.location.href = url; // En TV usamos redirección directa, los popups son bloqueados
+    }
+  };
 
   const abrirCanal = (canal: Channel) => {
     const activeVideos = canal.Actives ? Object.values(canal.Actives) : [];
@@ -93,9 +103,9 @@ export default function App() {
       });
       const mainActive = activeVideos[0];
       if (!mainActive.IsPremiere && canal.ChannelLiveUrl) {
-        navigateYouTube(canal.ChannelLiveUrl);
+        mainActive.VideoId ? setPlayingVideoId(mainActive.VideoId) : navigateYouTube(canal.ChannelLiveUrl);
       } else {
-        navigateYouTube(`https://www.youtube.com/watch?v=${mainActive.VideoId}`);
+        setPlayingVideoId(mainActive.VideoId);
       }
     } else {
       abrirCanalOnStreams(canal);
@@ -144,7 +154,8 @@ export default function App() {
   };
 
   return (
-    <div className="zapping-container">
+    <>
+      <div className={`zapping-container ${playingVideoId ? 'hide-for-tv-player' : ''}`}>
       <AppHeader
         searchText={searchText}
         onSearchChange={setSearchText}
@@ -214,5 +225,8 @@ export default function App() {
         <div className="fullscreen-overlay" onClick={() => setExpandedChannels(new Set())}></div>
       )}
     </div>
+
+      {playingVideoId && <TVPlayer videoId={playingVideoId} onClose={() => setPlayingVideoId(null)} />}
+    </>
   );
 }
