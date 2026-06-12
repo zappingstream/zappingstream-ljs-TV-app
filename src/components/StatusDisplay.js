@@ -22,7 +22,7 @@ export default class StatusDisplay extends Lightning.Component {
 
                     // Mientras tanto, usamos un texto o icono temporal que girará
                     text: {
-                        text: '🔄',
+                        text: '↻',
                         fontSize: 64,
                         textAlign: 'center'
                     }
