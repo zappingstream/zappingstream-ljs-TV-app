@@ -19,6 +19,9 @@ jobs:
       - name: 3. Instalar dependencias
         run: npm install
 
+      - name: 3.5 Instalar Lightning CLI
+        run: npm install -g @lightningjs/cli
+
       - name: 4. Compilar Lightning JS
         # En proyectos Lightning, la compilación estándar se hace a través de su CLI.
         # Si lo tienes mapeado en tus scripts, 'npm run build' ejecutará 'lng build'.
