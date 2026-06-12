@@ -108,6 +108,7 @@ export default class App extends Lightning.Component {
     // Configurar Modales
     this.tag('Overlays.Info').onClose = () => {
       this._focusedSection = 'footer';
+      this.tag('Overlays.Info').patch({ smooth: { alpha: 0 } });
       this._updateUI();
       this._refocus();
     };
