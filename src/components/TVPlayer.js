@@ -84,7 +84,15 @@ export default class TVPlayer extends Lightning.Component {
         this._iframe.style.zIndex = '0';
         this._iframe.style.border = 'none';
 
+        // Bloqueo total: Evitamos que YouTube pueda robarse el foco nativo 
+        // del teclado o control remoto bajo ninguna circunstancia.
+        this._iframe.style.pointerEvents = 'none';
+        this._iframe.setAttribute('tabindex', '-1');
+
         document.body.appendChild(this._iframe);
+
+        // Evitamos que el autoplay de YouTube le robe el foco a Lightning JS
+        setTimeout(() => window.focus(), 500);
     }
 
     _destroyIframe() {

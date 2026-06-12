@@ -1,6 +1,5 @@
 import { Launch } from '@lightningjs/sdk'
 import App from './App.js'
-import { App as CapacitorApp } from '@capacitor/app'
 
 export default function () {
   // --- AJUSTE UNIVERSAL PARA CUALQUIER SMART TV ---
@@ -22,26 +21,19 @@ export default function () {
   `
   document.head.appendChild(style)
 
-  // --- FIX CAPACITOR: BOTÓN FÍSICO 'ATRÁS' EN ANDROID TV ---
-  // Evita que Android OS cierre la app cuando presionas la flecha Atrás.
-  if (window.Capacitor && window.Capacitor.isNativePlatform()) {
-    CapacitorApp.addListener('backButton', () => {
-      // Simular tecla 'Escape' para que Lightning JS la procese con _handleBack()
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-    })
-  }
-
-  // --- FIX TIZEN (SAMSUNG TV): BOTÓN FÍSICO 'ATRÁS' ---
-  // Intercepta el botón físico 'Atrás' en Tizen y lo convierte en una tecla 'Escape'
-  // para que Lightning JS lo maneje, evitando que se cierre la app.
-  if (window.tizen) {
-    document.addEventListener('tizenhwkey', (e) => {
-      if (e.keyName === 'Back') {
-        e.preventDefault() // Detiene la acción por defecto de Tizen (cerrar la app)
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-      }
-    })
-  }
+  // --- TRAMPA UNIVERSAL PARA EL BOTÓN ATRÁS (HISTORY API) ---
+  // Como las teles simulan el botón 'Back' del control usando la navegación
+  // del navegador, empujamos un estado falso para evitar que la app se cierre.
+  window.history.pushState({ noBackExitsApp: true }, '')
+  window.addEventListener('popstate', () => {
+    // Volvemos a empujar el estado para seguir atrapando futuros 'Atrás'
+    window.history.pushState({ noBackExitsApp: true }, '')
+    // Simulamos la tecla Escape para que Lightning la ataje con _handleBack()
+    const escEvent = new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true })
+    // Lightning JS requiere estrictamente la propiedad keyCode (27 = Escape) para detectar el botón
+    Object.defineProperty(escEvent, 'keyCode', { get: () => 27 })
+    window.dispatchEvent(escEvent)
+  })
 
   return Launch(App, ...arguments)
 }

@@ -105,6 +105,15 @@ export default class App extends Lightning.Component {
     this._focusedSection = 'header'; // 'header', 'content', 'footer', 'modal', 'player', 'search'
     this._contentRowIndex = 0; // 0 = CardsLive, 1 = CardsDemand (para navegación vertical)
 
+    // --- PUENTE UNIVERSAL (BOTÓN ATRÁS NATIVO) ---
+    // Atrapa el botón atrás físico de la tele sin importar qué rompió el DOM
+    window.addEventListener('appGoBack', () => {
+      const activeModule = this._getFocused(); // Vemos qué componente tiene tu foco (Player, Search, etc)
+      if (activeModule && typeof activeModule._handleBack === 'function') {
+        activeModule._handleBack(); // Forzamos su cierre nativo de Lightning
+      }
+    });
+
     // Configurar Modales
     this.tag('Overlays.Info').onClose = () => {
       this._focusedSection = 'footer';
