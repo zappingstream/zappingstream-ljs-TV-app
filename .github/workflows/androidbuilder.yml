@@ -38,7 +38,7 @@ jobs:
         run: |
           if [ ! -f capacitor.config.json ] && [ ! -f capacitor.config.ts ]; then
             # Si no existe el config, lo crea apuntando a la carpeta de Lightning (usualmente 'dist' o 'build')
-            npx cap init ZappingApp com.zapping.app --web-dir dist
+            npx cap init ZappingApp com.zapping.app --web-dir build
           fi
           npx cap add android
           npx cap sync android
