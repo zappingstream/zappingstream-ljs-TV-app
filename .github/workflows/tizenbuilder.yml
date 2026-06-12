@@ -22,13 +22,7 @@ jobs:
       - name: 4. Compilar Lightning JS
         run: npx @lightningjs/cli build
 
-      - name: 5. Instalar CLI oficial de Samsung Tizen
-        # Usamos la herramienta oficial de Samsung empaquetada para Node
-        run: npm install -g @tizen-tv/cli
-
-      - name: 6. Inyectar config.xml (Manifiesto de Tizen)
-        # Tizen necesita un archivo config.xml en la raíz de los archivos web.
-        # Lo generamos al vuelo dentro de la carpeta 'build' generada por Lightning.
+      - name: 5. Inyectar config.xml (Manifiesto de Tizen)
         run: |
           cd build
           if [ ! -f config.xml ]; then
@@ -42,9 +36,16 @@ jobs:
             </widget>' > config.xml
           fi
 
-      - name: 7. Empaquetar la aplicación (.wgt)
-        # El CLI de Tizen toma la carpeta 'build' y la convierte en un paquete instalable
-        run: tizen package -t wgt -- build
+      - name: 6. Empaquetar la aplicación (.wgt) usando ZIP
+        # Zipeamos todo el contenido de la carpeta build y lo nombramos .wgt
+        working-directory: ./build
+        run: zip -r ../zapping-app.wgt ./*
+
+      - name: 7. Subir el Widget final
+        uses: actions/upload-artifact@v4
+        with:
+          name: zapping-app-tizen
+          path: zapping-app.wgt
 
       - name: 8. Subir el Widget final
         uses: actions/upload-artifact@v4
