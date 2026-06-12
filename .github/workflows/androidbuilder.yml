@@ -1,4 +1,4 @@
-name: Compilar App Android
+name: Compilar App Android (Lightning JS)
 
 on:
   workflow_dispatch:
@@ -19,7 +19,9 @@ jobs:
       - name: 3. Instalar dependencias
         run: npm install
 
-      - name: 4. Compilar React
+      - name: 4. Compilar Lightning JS
+        # En proyectos Lightning, la compilación estándar se hace a través de su CLI.
+        # Si lo tienes mapeado en tus scripts, 'npm run build' ejecutará 'lng build'.
         run: npm run build
 
       - name: 5. Configurar Java JDK
@@ -32,7 +34,6 @@ jobs:
         run: npx cap sync android
 
       - name: 7. Compilar el APK con Gradle
-        # Ahora la carpeta android está directamente en la raíz
         working-directory: ./android
         run: |
           chmod +x ./gradlew
@@ -42,5 +43,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: zapping-app-debug
-          # La ruta de descarga también se acorta desde la raíz
           path: android/app/build/outputs/apk/debug/app-debug.apk
