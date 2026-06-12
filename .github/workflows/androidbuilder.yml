@@ -41,6 +41,7 @@ jobs:
             npx cap init ZappingApp com.zapping.app --web-dir dist
           fi
           npx cap add android
+          npx cap sync android
 
       - name: 8. Compilar el APK con Gradle
         working-directory: ./android
