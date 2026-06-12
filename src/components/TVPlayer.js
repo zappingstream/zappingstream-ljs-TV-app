@@ -114,12 +114,14 @@ export default class TVPlayer extends Lightning.Component {
 
     // Este método intercepta la tecla Escape y Backspace (Atrás) por defecto en Lightning
     _handleBack() {
-        if (this._isClosing) return;
+        if (this._isClosing) return true;
         this._isClosing = true;
 
         if (this._onCloseCallback) {
             this._onCloseCallback();
         }
+        
+        return true;
     }
 
     // Este método intercepta cualquier otra tecla (flechas, enter)
