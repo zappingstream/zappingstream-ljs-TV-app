@@ -17,14 +17,14 @@ export default class TVPlayer extends Lightning.Component {
                 rect: true,
                 color: 0xff38b6ff, // Color celeste activo simulando que está "enfocado"
                 shader: { type: Lightning.shaders.RoundedRectangle, radius: 8 },
-                w: 420,
+                w: 650,
                 h: 60,
                 Text: {
                     mount: 0.5,
-                    x: 210,
+                    x: 325,
                     y: 30,
                     text: {
-                        text: '‹ Presiona Atrás para salir',
+                        text: '‹ Atrás | OK: Pausa | ◂ 15s ▸',
                         fontSize: 24,
                         fontFace: 'Bold',
                         textColor: 0xff000000,
@@ -38,6 +38,7 @@ export default class TVPlayer extends Lightning.Component {
         this._timer = null;
         this._isClosing = false;
         this._focusInterval = null;
+        this._isPlaying = true;
     }
 
     // Se ejecuta automáticamente cuando el componente se muestra en pantalla
@@ -71,9 +72,25 @@ export default class TVPlayer extends Lightning.Component {
     _createIframe() {
         if (this._iframe || !this._videoId) return;
 
+        this._currentTime = 0;
+        this._duration = 0;
+
+        // Escuchamos los mensajes de YouTube para mantener sincronizado el tiempo actual
+        this._messageListener = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.event === 'infoDelivery' && data.info) {
+                    if (data.info.currentTime !== undefined) this._currentTime = data.info.currentTime;
+                    if (data.info.duration !== undefined) this._duration = data.info.duration;
+                }
+            } catch (e) {}
+        };
+        window.addEventListener('message', this._messageListener);
+
         this._iframe = document.createElement('iframe');
         this._iframe.className = 'tv-iframe';
-        this._iframe.src = `https://www.youtube-nocookie.com/embed/${this._videoId}?autoplay=1&fs=1&modestbranding=1&rel=0`;
+        // Agregamos enablejsapi=1 para poder enviarle comandos mediante postMessage
+        this._iframe.src = `https://www.youtube-nocookie.com/embed/${this._videoId}?autoplay=1&fs=1&modestbranding=1&rel=0&enablejsapi=1&origin=${window.location.origin}`;
         this._iframe.frameBorder = '0';
         this._iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
         this._iframe.allowFullscreen = true;
@@ -87,17 +104,34 @@ export default class TVPlayer extends Lightning.Component {
         this._iframe.style.zIndex = '0';
         this._iframe.style.border = 'none';
 
-        document.body.appendChild(this._iframe);
+        // Le indicamos a YouTube que nos empiece a enviar los reportes de tiempo
+        this._iframe.onload = () => {
+            if (this._iframe && this._iframe.contentWindow) {
+                this._iframe.contentWindow.postMessage(JSON.stringify({ event: 'listening' }), '*');
+            }
+        };
 
-        // Permitimos que el iframe reciba el foco para poder adelantar/atrasar con el control
-        setTimeout(() => {
-            if (this._iframe) this._iframe.focus();
-        }, 500);
+        document.body.appendChild(this._iframe);
+        this._isPlaying = true;
+        this._updateControlsText();
     }
 
     _destroyIframe() {
-        if (this._iframe && this._iframe.parentNode) {
-            this._iframe.parentNode.removeChild(this._iframe);
+        if (this._messageListener) {
+            window.removeEventListener('message', this._messageListener);
+            this._messageListener = null;
+        }
+
+        if (this._iframe) {
+            // Forzamos un STOP nativo en el iframe antes de destruirlo
+            // (evita el bug de Tizen donde el audio sigue sonando de fondo)
+            if (this._iframe.contentWindow) {
+                this._iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'stopVideo', args: [] }), '*');
+            }
+            
+            if (this._iframe.parentNode) {
+                this._iframe.parentNode.removeChild(this._iframe);
+            }
             this._iframe = null;
         }
         this._clearFocusLock();
@@ -129,6 +163,15 @@ export default class TVPlayer extends Lightning.Component {
         }
     }
 
+    _updateControlsText() {
+        const textNode = this.tag('Controls.Text');
+        if (this._isPlaying) {
+            textNode.text.text = '‹ Atrás | OK: Pausa | ◂ 15s ▸';
+        } else {
+            textNode.text.text = '⏸ PAUSADO | OK: Reproducir | ‹ Atrás';
+        }
+    }
+
     // Este método intercepta la tecla Escape y Backspace (Atrás) por defecto en Lightning
     _handleBack() {
         if (this._isClosing) return true;
@@ -143,12 +186,46 @@ export default class TVPlayer extends Lightning.Component {
 
     // Interceptamos el botón OK/Enter del control remoto
     _handleEnter() {
-        if (this._timer !== null) {
-            this._handleBack(); // Si el botón está visible (timer activo) cerramos el video
-        } else {
-            this._wakeUpControls(); // Si estaba oculto, lo despertamos para que el usuario lo vea
+        this._isPlaying = !this._isPlaying;
+        
+        // Enviar comando Play/Pause directo al Iframe usando postMessage
+        if (this._iframe && this._iframe.contentWindow) {
+            const command = this._isPlaying ? 'playVideo' : 'pauseVideo';
+            this._iframe.contentWindow.postMessage(JSON.stringify({
+                event: 'command',
+                func: command,
+                args: []
+            }), '*');
         }
+        
+        this._updateControlsText();
+        this._wakeUpControls();
         return true;
+    }
+
+    // --- Controles de Tiempo (Izquierda / Derecha) ---
+    _handleLeft() {
+        this._seek(-15);
+        return true;
+    }
+
+    _handleRight() {
+        this._seek(15);
+        return true;
+    }
+
+    _seek(seconds) {
+        if (this._iframe && this._iframe.contentWindow) {
+            // Calculamos el nuevo tiempo asegurándonos de no ir a negativos ni pasarnos del final
+            this._currentTime = Math.max(0, this._currentTime + seconds);
+            if (this._duration > 0) {
+                this._currentTime = Math.min(this._currentTime, this._duration);
+            }
+            
+            // Le ordenamos a YouTube que salte a ese segundo (true permite hacer buffering anticipado)
+            this._iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [this._currentTime, true] }), '*');
+            this._wakeUpControls();
+        }
     }
 
     // Este método intercepta cualquier otra tecla (flechas, enter)

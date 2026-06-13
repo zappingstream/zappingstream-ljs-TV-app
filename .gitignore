@@ -68,3 +68,7 @@ dist
 releases
 .tmp
 build
+
+author-signature.xml
+signature1.xml
+ZappingStream.wgt

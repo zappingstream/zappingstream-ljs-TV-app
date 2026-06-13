@@ -228,7 +228,7 @@ export default class SearchModal extends Lightning.Component {
             this.fireAncestors('$closeSearchModal');
             return true;
         } else if (key === 'BUSCAR') {
-            this._onSearch?.(this._searchText.trim());
+            if (this._onSearch) this._onSearch(this._searchText.trim());
             this.fireAncestors('$closeSearchModal');
             return true;
         } else {

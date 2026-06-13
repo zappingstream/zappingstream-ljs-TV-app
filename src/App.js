@@ -52,7 +52,8 @@ export default class App extends Lightning.Component {
       Overlays: {
         Player: {
           type: TVPlayer,
-          alpha: 0 // Oculto hasta que se seleccione un video
+          alpha: 0,
+          visible: false // Usamos visible para que dispare _inactive() y destruya el Iframe
         },
         Info: {
           type: InfoModal,
@@ -125,6 +126,7 @@ export default class App extends Lightning.Component {
     this.tag('Overlays.Player').onClose = () => {
       this._focusedSection = 'content';
       this.tag('Overlays.Player').alpha = 0;
+      this.tag('Overlays.Player').visible = false;
       this.tag('Main').alpha = 1; // Restauramos la interfaz principal
       this.tag('Background').alpha = 1;
       this._updateUI();
@@ -384,6 +386,7 @@ export default class App extends Lightning.Component {
       this._focusedSection = 'player';
       this.tag('Overlays.Player').videoId = match[1];
       this.tag('Overlays.Player').alpha = 1;
+      this.tag('Overlays.Player').visible = true;
 
       this.tag('Main').alpha = 0; // Ocultamos la app detrás del reproductor
       this.tag('Background').alpha = 0;

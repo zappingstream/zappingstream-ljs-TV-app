@@ -46,14 +46,24 @@ export default function (appSettings = {}, platformSettings = {}, appData) {
     }).catch(err => console.error('Error cargando Capacitor App', err))
   }
 
-  // 2. TRAMPA TIZEN (SAMSUNG TV)
+  // 2. TRAMPAS PARA SMART TV (SAMSUNG / LG / ETC)
+  // Usamos la fase de captura (true) para interceptar el botón Atrás ANTES 
+  // de que el iframe de YouTube se lo trague cuando tiene el foco.
+  window.addEventListener('keydown', (e) => {
+    if (e.keyCode === 10009 || e.keyCode === 461 || e.key === 'BrowserBack') {
+      e.preventDefault();
+      e.stopPropagation();
+      fireGoBack();
+    }
+  }, true);
+
   if (window.tizen) {
-    document.addEventListener('tizenhwkey', (e) => {
-      if (e.keyName === 'Back' || e.keyName === 'Return') {
-        e.preventDefault()
-        fireGoBack()
+    window.addEventListener('tizenhwkey', (e) => {
+      if (e.keyName === 'Back' || e.keyName === 'back' || e.keyName === 'Return') {
+        e.preventDefault();
+        fireGoBack();
       }
-    })
+    }, true);
   }
 
   // --- TRAMPA UNIVERSAL PARA EL BOTÓN ATRÁS (HISTORY API) ---

@@ -7,14 +7,8 @@ export const getChannels = async () => {
         // const token = await getRecaptchaToken();
 
         // 5. Adjuntar el token en los headers de tu fetch original
-        const response = await fetch(API_URL, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                // Descomenta la siguiente línea y ajusta la cabecera según lo que espere tu backend:
-                // 'Authorization': `Bearer ${token}` 
-            }
-        });
+        const response = await fetch(API_URL);
+
 
         if (!response.ok) {
             throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
@@ -34,9 +28,14 @@ export const getChannels = async () => {
                 if (Array.isArray(videos)) {
                     return videos.filter((v) => v.ToBeCut !== true);
                 }
-                return Object.fromEntries(
-                    Object.entries(videos).filter(([_, v]) => v.ToBeCut !== true)
-                );
+
+                const result = {};
+                Object.keys(videos).forEach(key => {
+                    if (videos[key].ToBeCut !== true) {
+                        result[key] = videos[key];
+                    }
+                });
+                return result;
             };
 
             return {
