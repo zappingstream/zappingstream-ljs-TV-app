@@ -387,9 +387,62 @@ export default class App extends Lightning.Component {
       this.tag('Background').alpha = 0;
       this._refocus();
     } else {
-      // Al no ser un video directo, forzamos abrir una pestaña nueva o la app nativa de YouTube
-      window.open(url, '_blank');
+      // En lugar de window.open, forzamos abrir la app nativa mediante Deep Links
+      this._launchNativeYouTube(url);
     }
+  }
+
+  // --- Helper para lanzar la app NATIVA de YouTube según el Sistema Operativo ---
+  _launchNativeYouTube(url) {
+    // 1. Tizen (Samsung Smart TV)
+    if (typeof tizen !== 'undefined' && tizen.application) {
+      try {
+        const appControl = new tizen.ApplicationControl(
+          'http://tizen.org/appcontrol/operation/view',
+          url
+        );
+        tizen.application.launchAppControl(
+          appControl,
+          '111299001912', // ID oficial de la app de YouTube en Tizen
+          () => console.log('YouTube nativo lanzado en Tizen'),
+          (e) => {
+            console.error('Fallo al abrir YouTube en Tizen:', e.message);
+            window.open(url, '_blank');
+          }
+        );
+        return;
+      } catch (err) {
+        console.error('Error usando tizen.application:', err);
+      }
+    }
+
+    // 2. WebOS (LG Smart TV)
+    if (window.webOS && window.webOS.service) {
+      window.webOS.service.request('luna://com.webos.applicationManager', {
+        method: 'launch',
+        parameters: {
+          id: 'youtube.leanback.v4', // ID oficial de YouTube en WebOS
+          params: { contentTarget: url }
+        },
+        onFailure: (e) => {
+          console.error('Fallo al abrir YouTube en WebOS:', e);
+          window.open(url, '_blank');
+        }
+      });
+      return;
+    }
+
+    // 3. Android TV (Capacitor) / Genérico
+    if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+      // En Android, el intent URI fuerza al SO a salir del WebView y buscar la app configurada (YouTube)
+      const cleanUrl = url.replace(/^https?:\/\//, '');
+      const intentUrl = `intent://${cleanUrl}#Intent;scheme=https;action=android.intent.action.VIEW;end;`;
+      window.location.href = intentUrl;
+      return;
+    }
+
+    // 4. Fallback genérico a navegador
+    window.open(url, '_blank');
   }
 
   // --- Búsqueda de Canales ---
