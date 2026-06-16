@@ -409,7 +409,7 @@ export default class App extends Lightning.Component {
             console.error('Fallo al abrir YouTube en Tizen:', e.message);
             window.open(url, '_blank');
           }
-        );
+        ); 
         return;
       } catch (err) {
         console.error('Error usando tizen.application:', err);
