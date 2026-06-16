@@ -45,17 +45,6 @@ export default class StatusDisplay extends Lightning.Component {
     }
 
     _init() {
-        // Creamos la animación de rotación infinita para el spinner
-        this._spinnerAnim = this.tag('Spinner').animation({
-            duration: 2,
-            repeat: -1,
-            actions: [
-                { p: 'rotation', v: { 0: 0, 1: Math.PI * 2 } }
-            ]
-        });
-        if (this._isLoadingFlag) {
-            this._spinnerAnim.play();
-        }
     }
 
     // Este setter equivale a recibir los "props" en React
@@ -64,13 +53,11 @@ export default class StatusDisplay extends Lightning.Component {
 
         // Ocultamos el spinner por defecto en cada actualización
         this.tag('Spinner').alpha = 0;
-        if (this._spinnerAnim) this._spinnerAnim.pause();
         this._isLoadingFlag = isFetching || isLoading;
 
         if (this._isLoadingFlag) {
             this.alpha = 1;
             this.tag('Spinner').alpha = 1;
-            if (this._spinnerAnim) this._spinnerAnim.play();
             this.tag('Message').text.text = 'Conectando con el universo del stream argentino...';
         } else if (!hasChannels) {
             this.alpha = 1;

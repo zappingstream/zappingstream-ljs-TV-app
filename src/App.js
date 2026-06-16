@@ -74,21 +74,6 @@ export default class App extends Lightning.Component {
   }
 
   _init() {
-    // Animación del fondo
-    this.tag('Background')
-      .animation({
-        duration: 15,
-        repeat: -1,
-        actions: [
-          {
-            t: '',
-            p: 'color',
-            v: { 0: { v: 0xfffbb03b }, 0.5: { v: 0xfff46730 }, 0.8: { v: 0xfffbb03b } },
-          },
-        ],
-      })
-      .start()
-
     // --- Estado Principal de la Aplicación ---
     this._channels = [];
     this._allChannels = []; // Almacenar lista completa para filtrado

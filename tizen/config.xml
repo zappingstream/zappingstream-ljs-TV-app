@@ -5,9 +5,14 @@
     <access origin="*" subdomains="true"/>
     <content src="https://zappingstream.com/tv"/>
     <feature name="http://tizen.org/feature/screen.size.all"/>
-    <icon src="icon.png"/> <name>ZappingStream</name>
+    <icon src="icon.png"/> 
+    <name>ZappingStream</name>
+    
+    <!-- Permisos -->
     <tizen:privilege name="http://tizen.org/privilege/internet"/>
     <tizen:privilege name="http://tizen.org/privilege/tv.audio"/>
+    <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
+    
     <tizen:profile name="tv"/>
     <tizen:setting screen-orientation="landscape" context-menu="enable" background-support="disable" encryption="disable" install-location="auto" hwkey-event="enable"/>
 </widget>

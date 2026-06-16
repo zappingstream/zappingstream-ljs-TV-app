@@ -118,14 +118,6 @@ export default class AppFooter extends Lightning.Component {
     }
 
     _init() {
-        // Animación infinita para el spinner (girar 360 grados / 2 PI radianes)
-        this._spinAnim = this.tag('RefreshBtn.Icon').animation({
-            duration: 1,
-            repeat: -1,
-            actions: [
-                { p: 'rotation', v: { 0: 0, 1: Math.PI * 2 } }
-            ]
-        });
     }
 
     // Equivalente a tus props
@@ -139,11 +131,8 @@ export default class AppFooter extends Lightning.Component {
         // Manejar el estado del botón Refresh
         if (isRefreshing) {
             this.tag('RefreshBtn').alpha = 0.5; // Lo mostramos visualmente "deshabilitado"
-            this._spinAnim.play(); // Iniciar giro
         } else {
             this.tag('RefreshBtn').alpha = 1;
-            this._spinAnim.pause();
-            this.tag('RefreshBtn.Icon').rotation = 0; // Resetear la rotación
         }
     }
 

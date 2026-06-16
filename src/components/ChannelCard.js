@@ -42,10 +42,15 @@ export default class ChannelCard extends Lightning.Component {
                 }
             },
 
-            // Cuerpo: Contendrá las VideoCards dinámicamente
+            // Cuerpo: Pool estático interno de VideoCards (Evita instanciarlas en tiempo real)
             Body: {
                 y: 75,
                 x: 20,
+                Video_0: { type: VideoCard, alpha: 0, x: -9999 },
+                Video_1: { type: VideoCard, alpha: 0, x: -9999 },
+                Video_2: { type: VideoCard, alpha: 0, x: -9999 },
+                Video_3: { type: VideoCard, alpha: 0, x: -9999 },
+                Video_4: { type: VideoCard, alpha: 0, x: -9999 }
             },
 
             // Textos para la versión expandida (On-Demand)
@@ -65,10 +70,6 @@ export default class ChannelCard extends Lightning.Component {
         };
     }
 
-    _construct() {
-        this._failedVideos = new Set();
-    }
-
     // Manejador del estado y propiedades
     set item(data) {
         this._item = data;
@@ -83,12 +84,13 @@ export default class ChannelCard extends Lightning.Component {
         if (!this._item) return;
 
         const { channel, isExpanded, isLiveGroup } = this._item;
+        const failedVideos = this._item.failedVideos || new Set();
 
         // Lógica de filtrado de videos fallidos y ordenamiento
         let activeVideos = [];
         if (isLiveGroup && channel.Actives) {
             activeVideos = Object.values(channel.Actives)
-                .filter(v => !this._failedVideos.has(v.VideoId))
+                .filter(v => !failedVideos.has(v.VideoId))
                 .sort((a, b) => {
                     if (a.IsPremiere && !b.IsPremiere) return 1;
                     if (!a.IsPremiere && b.IsPremiere) return -1;
@@ -137,14 +139,28 @@ export default class ChannelCard extends Lightning.Component {
         this.tag('Header.InfoBtn.Text').text.text = isExpanded ? 'Ocultar' : 'Info';
 
         // --- Render Body ---
-        const bodyItems = [];
         this.tag('ExpandedInfo').alpha = 0;
+        
+        // Traemos el pool estático
+        const pool = [
+            this.tag('Body.Video_0'),
+            this.tag('Body.Video_1'),
+            this.tag('Body.Video_2'),
+            this.tag('Body.Video_3'),
+            this.tag('Body.Video_4')
+        ];
+
+        // Ocultar todo por defecto antes de parchear
+        pool.forEach(vc => {
+            vc.alpha = 0;
+            vc.x = -9999;
+        });
 
         if (isExpanded) {
             // Modo Expandido
-            bodyItems.push({
-                type: VideoCard,
+            pool[0].patch({
                 w: 460, h: 258, // Expandido
+                x: 0, alpha: 1,
                 item: {
                     imageUrl: channel.ChannelBannerUrl ? `${channel.ChannelBannerUrl}=w1707-fcrop64=1,00005a57ffffa5a8-k-c0xffffffff-no-nd-rj` : channel.ChannelImgUrl,
                     altText: channel.ChannelName,
@@ -162,9 +178,8 @@ export default class ChannelCard extends Lightning.Component {
                 ? getFreshImage(mainActive.ThumbnailUrl, channel.LastActivityAt)
                 : channel.ChannelImgUrl;
 
-            bodyItems.push({
-                type: VideoCard,
-                w: 340, h: 191,
+            pool[0].patch({
+                w: 340, h: 191, x: 0, alpha: 1,
                 item: {
                     imageUrl: primaryImageUrl,
                     altText: mainActive.Title || channel.ChannelName,
@@ -176,25 +191,26 @@ export default class ChannelCard extends Lightning.Component {
             });
 
             restoActivos.forEach((activo, idx) => {
-                bodyItems.push({
-                    type: VideoCard,
-                    w: 340, h: 191,
-                    x: 355 * (idx + 1), // Lo ubicamos a la derecha (340 + 15 gap)
-                    item: {
-                        imageUrl: activo.ThumbnailUrl ? getFreshImage(activo.ThumbnailUrl, channel.LastActivityAt) : undefined,
-                        altText: activo.Title,
-                        fallbackText: channel.ChannelName,
-                        isLive: true,
-                        isPremiere: activo.IsPremiere,
-                        onImageError: () => this._handleVideoError(activo.VideoId)
-                    }
-                });
+                if (idx + 1 < pool.length) {
+                    pool[idx + 1].patch({
+                        w: 340, h: 191,
+                        x: 355 * (idx + 1), // Lo ubicamos a la derecha (340 + 15 gap)
+                        alpha: 1,
+                        item: {
+                            imageUrl: activo.ThumbnailUrl ? getFreshImage(activo.ThumbnailUrl, channel.LastActivityAt) : undefined,
+                            altText: activo.Title,
+                            fallbackText: channel.ChannelName,
+                            isLive: true,
+                            isPremiere: activo.IsPremiere,
+                            onImageError: () => this._handleVideoError(activo.VideoId)
+                        }
+                    });
+                }
             });
         } else {
             // Modo On-Demand estándar
-            bodyItems.push({
-                type: VideoCard,
-                w: 340, h: 191,
+            pool[0].patch({
+                w: 340, h: 191, x: 0, alpha: 1,
                 item: {
                     imageUrl: channel.ChannelImgUrl,
                     altText: channel.ChannelName,
@@ -202,14 +218,11 @@ export default class ChannelCard extends Lightning.Component {
                 }
             });
         }
-
-        this.tag('Body').children = bodyItems;
     }
 
-    // Equivalente a `setFailedVideos(prev => new Set(prev).add(id))`
     _handleVideoError(videoId) {
-        if (!this._failedVideos.has(videoId)) {
-            this._failedVideos.add(videoId);
+        if (this._item.onVideoError) {
+            this._item.onVideoError(videoId);
         }
     }
 
@@ -218,7 +231,6 @@ export default class ChannelCard extends Lightning.Component {
     _focus() {
         // Animación al enfocar la tarjeta (agrandado suave y resaltado de borde exagerado en TV)
         this.patch({
-            smooth: { scale: 1.05 },
             color: 0xff2a2a2a, // background-color un poquito más claro
             shader: { type: Lightning.shaders.RoundedRectangle, radius: 15, stroke: 4, strokeColor: 0xff38b6ff }, // Borde celeste 4px
             zIndex: 10
@@ -227,7 +239,6 @@ export default class ChannelCard extends Lightning.Component {
 
     _unfocus() {
         this.patch({
-            smooth: { scale: 1.0 },
             color: 0xff1a1a1a,
             shader: { type: Lightning.shaders.RoundedRectangle, radius: 15, stroke: 0, strokeColor: 0x00000000 }, // Sin borde inactivo
             zIndex: 1

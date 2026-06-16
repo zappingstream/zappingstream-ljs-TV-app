@@ -11,34 +11,29 @@ export default class VideoCard extends Lightning.Component {
             shader: { type: Lightning.shaders.RoundedRectangle, radius: 8 },
 
             Fallback: {
-                w: w => w,
-                h: h => h,
+                w: w => w - 24, // Achicamos 12px de cada lado
+                h: h => h - 24,
+                x: 12,
+                y: 12,
                 rect: true,
                 color: 0xff333333, // Fondo gris del fallback
-                Text: {
-                    mount: 0.5,
-                    x: w => w / 2,
-                    y: h => h / 2,
-                    text: {
-                        text: '?',
-                        fontSize: 64,
-                        fontFace: 'Regular',
-                        textColor: 0xff38b6ff, // Letra color celeste
-                    }
-                }
+                shader: { type: Lightning.shaders.RoundedRectangle, radius: 6 }, // Le damos bordes redondeados internos
             },
 
             Image: {
-                w: w => w,
-                h: h => h,
+                w: w => w - 24,
+                h: h => h - 24,
+                x: 12,
+                y: 12,
                 alpha: 1, // DEBE iniciar en 1 para que WebGL fuerce la descarga de la textura
+                shader: { type: Lightning.shaders.RoundedRectangle, radius: 6 },
             },
 
             Badge: {
                 mountX: 1,
                 mountY: 1,
-                x: w => w - 8,
-                y: h => h - 8,
+                x: w => w - 20, // Empujamos el cartelito de 'En Vivo' hacia adentro
+                y: h => h - 20,
                 rect: true,
                 color: 0x00000000, // Transparente por defecto
                 alpha: 0,
@@ -67,15 +62,6 @@ export default class VideoCard extends Lightning.Component {
     }
 
     _init() {
-        // Animación de titilar para el badge de Vivo/Estreno
-        this._blinkAnim = this.tag('Badge.Dot').animation({
-            duration: 1.2,
-            repeat: -1,
-            actions: [
-                { p: 'alpha', v: { 0: 1, 1: 0.3 } }
-            ]
-        });
-
         // Escuchar error en la carga de la imagen
         this.tag('Image').on('txError', () => {
             this._handleImageError();
@@ -92,8 +78,6 @@ export default class VideoCard extends Lightning.Component {
     _handleImageError() {
         this.tag('Image').alpha = 0;
         this.tag('Fallback').alpha = 1;
-        const letter = this._fallbackText ? this._fallbackText.substring(0, 1).toUpperCase() : '?';
-        this.tag('Fallback.Text').text.text = letter;
 
         // Llama al callback de error si fue provisto
         if (this.onImageError) {
@@ -103,6 +87,7 @@ export default class VideoCard extends Lightning.Component {
 
     // Setter equivalente a pasarle "props" desde React
     set item(data) {
+        const oldImageUrl = this._imageUrl;
         this._imageUrl = data.imageUrl;
         this._fallbackText = data.fallbackText;
         this.onClick = data.onClick;
@@ -110,20 +95,24 @@ export default class VideoCard extends Lightning.Component {
 
         // Si hay imagen, asigarla para iniciar la carga
         if (this._imageUrl) {
-            this.tag('Fallback').alpha = 1; // Aseguramos que el fallback se vea mientras carga
-            this.tag('Image').alpha = 1; // Restauramos la visibilidad por si se reusa la tarjeta
+            // Solo reiniciamos la carga si la URL es nueva. 
+            // Lightning no dispara 'txLoaded' si se reasigna la misma URL, dejando la imagen en 0.001
+            if (oldImageUrl !== this._imageUrl || !this.tag('Image').src) {
+                this.tag('Fallback').alpha = 1; // Aseguramos que el fallback se vea mientras carga
+                
+                // TRUCO LIGHTNING: alpha debe ser > 0 para que el motor webGL NO la ignore y la descargue
+                this.tag('Image').alpha = 0.001;
 
-            // OPTIMIZACIÓN: Pedir miniatura de menor peso (mqdefault 320x180) de YouTube
-            let finalSrc = this._imageUrl.replace(/(maxresdefault|hqdefault|sddefault)\.jpg/i, 'mqdefault.jpg');
+                // OPTIMIZACIÓN: Pedir miniatura de menor peso (mqdefault 320x180) de YouTube
+                let finalSrc = this._imageUrl.replace(/(maxresdefault|hqdefault|sddefault)\.jpg/i, 'mqdefault.jpg');
 
-            // --- SOLUCIÓN DEFINITIVA A CORS EN WEBGL ---
-            // WebGL es estricto: si YouTube no envía la cabecera CORS, la textura colapsa.
-            // Pasamos las imágenes de Google/YouTube por un Image CDN (wsrv.nl) que fuerza el CORS.
-            if (finalSrc.includes('ytimg.com') || finalSrc.includes('youtube.com') || finalSrc.includes('ggpht.com')) {
-                finalSrc = `https://wsrv.nl/?url=${encodeURIComponent(finalSrc)}&w=400&output=webp`;
+                // --- SOLUCIÓN DEFINITIVA A CORS EN WEBGL ---
+                if (finalSrc.includes('ytimg.com') || finalSrc.includes('youtube.com') || finalSrc.includes('ggpht.com')) {
+                    finalSrc = `https://wsrv.nl/?url=${encodeURIComponent(finalSrc)}&w=400&output=webp`;
+                }
+
+                this.tag('Image').src = finalSrc;
             }
-
-            this.tag('Image').src = finalSrc;
         } else {
             this._handleImageError();
         }
@@ -169,7 +158,6 @@ export default class VideoCard extends Lightning.Component {
             strokeColor = isPremiere ? PREMIERE_COLOR : LIVE_COLOR;
         } else {
             badge.alpha = 0; // Ocultar si no cumple ninguna condición
-            if (this._blinkAnim) this._blinkAnim.pause();
             return;
         }
 
@@ -179,12 +167,10 @@ export default class VideoCard extends Lightning.Component {
         if (hasDot) {
             dot.alpha = 1;
             label.x = 20; // Hacemos lugar para el punto
-            if (this._blinkAnim && !this._blinkAnim.isPlaying()) this._blinkAnim.play();
             badge.w = text.length * 8 + 30; // Aproximación ancho con punto
         } else {
             dot.alpha = 0;
             label.x = 8;
-            if (this._blinkAnim) this._blinkAnim.pause();
             badge.w = text.length * 8 + 16; // Aproximación ancho sin punto
         }
 
@@ -201,15 +187,9 @@ export default class VideoCard extends Lightning.Component {
 
     // Efecto visual cuando navegas hacia la tarjeta
     _focus() {
-        this.patch({
-            smooth: { scale: 1.05 }
-        });
     }
 
     // Efecto visual cuando sales de la tarjeta
     _unfocus() {
-        this.patch({
-            smooth: { scale: 1.0 }
-        });
     }
 }

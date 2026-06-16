@@ -31,7 +31,14 @@ export default class ChannelCategoryRow extends Lightning.Component {
 
     _init() {
         this._index = 0; // Índice de la tarjeta enfocada
-        this._cards = []; // Guardaremos referencias solo a los elementos enfocables (ChannelCard)
+        this._poolSize = 15; // Pool de tarjetas reciclables
+        const items = [];
+        for (let i = 0; i < this._poolSize; i++) {
+            items.push({ type: ChannelCard, alpha: 0, x: -9999 });
+        }
+        this.tag('Slider.Items').children = items;
+        this._cardsPool = this.tag('Slider.Items').children;
+        this._failedVideos = new Set();
     }
 
     // Setter que reemplaza los "props" de React
@@ -52,47 +59,66 @@ export default class ChannelCategoryRow extends Lightning.Component {
             return;
         }
         this.alpha = 1;
-
         this.tag('Title').text.text = title;
 
-        let currentX = 0;
-        const items = [];
-        const GAP = 150; // Espaciado muy generoso entre tarjetas
+        this._originalChannels = channels;
+        this._expandedChannels = expandedChannels;
+        this._isLiveGroup = title === 'AHORA';
 
-        const isExpanded = (name) => expandedChannels && expandedChannels.has(name);
+        this._callbacks = { 
+            toggleInfo, abrirCanal, abrirCanalOnStreams, abrirCanalOnDemand, navigateYouTube,
+            onVideoError: (videoId) => this._handleVideoError(videoId)
+        };
+
+        // Limpiar el pool para forzar re-renderizado
+        this._cardsPool.forEach(card => {
+            card._currentDataIdx = -1;
+            card.alpha = 0;
+            card.x = -9999;
+        });
+
+        this._buildData();
+        this._index = 0;
+        this._updateScroll(true); // Posicionamiento inicial instantáneo
+    }
+
+    _handleVideoError(videoId) {
+        if (!this._failedVideos.has(videoId)) {
+            this._failedVideos.add(videoId);
+            this._buildData();
+        }
+    }
+
+    _buildData() {
+        let currentX = 0;
+        const GAP = 150;
 
         const getCardWidth = (channel) => {
-            const activeCount = Object.keys(channel.Actives || {}).length;
-            if (title === 'AHORA' && activeCount > 1) {
+            const actives = Object.values(channel.Actives || {}).filter(v => !this._failedVideos.has(v.VideoId));
+            const activeCount = actives.length;
+            if (this._isLiveGroup && activeCount > 1) {
                 return 380 + ((activeCount - 1) * 355);
             }
             return 380;
         };
 
-        channels.forEach(channel => {
-            const cardW = getCardWidth(channel);
-            items.push({
-                type: ChannelCard,
-                ref: `Card_${channel.ChannelName}`,
-                x: currentX,
-                w: cardW,
-                item: {
-                    channel,
-                    isExpanded: isExpanded(channel.ChannelName),
-                    isLiveGroup: title === 'AHORA', // true si es categoría de Live
-                    toggleInfo,
-                    abrirCanal,
-                    abrirCanalOnStreams,
-                    abrirCanalOnDemand,
-                    navigateYouTube
-                }
-            });
-            currentX += cardW + GAP;
+        this._channelData = this._originalChannels.map((channel, i) => {
+            const w = getCardWidth(channel);
+            const info = { channel, x: currentX, w, index: i };
+            currentX += w + GAP;
+            return info;
         });
 
-        this.tag('Slider.Items').children = items;
-        this._cards = this.tag('Slider.Items').children;
-        this._updateScroll(); // Forzar el culling al inicializar la fila
+        if (this._channelData.length > 0 && this._index >= this._channelData.length) {
+            this._index = this._channelData.length - 1;
+        }
+
+        // Forzar al pool a actualizar anchos y coordenadas
+        this._cardsPool.forEach(card => {
+            card._currentDataIdx = -1; 
+        });
+
+        this._updateScroll();
     }
 
     // --- Control de Foco y Navegación Horizontal ---
@@ -107,7 +133,7 @@ export default class ChannelCategoryRow extends Lightning.Component {
     }
 
     _handleRight() {
-        if (this._index < this._cards.length - 1) {
+        if (this._channelData && this._index < this._channelData.length - 1) {
             this._index++;
             this._updateScroll();
             this._refocus();
@@ -116,23 +142,53 @@ export default class ChannelCategoryRow extends Lightning.Component {
         return false;
     }
 
-    _updateScroll() {
-        const currentCard = this._cards[this._index];
-        if (currentCard) {
-            let targetX = 60 - currentCard.x;
-            this.tag('Slider').patch({
-                smooth: { x: targetX }
-            });
+    _updateScroll(instant = false) {
+        if (!this._channelData || this._channelData.length === 0) return;
+
+        const targetChannel = this._channelData[this._index];
+        if (targetChannel) {
+            let targetX = 60 - targetChannel.x;
+            this.tag('Slider').x = targetX;
         }
 
-        // PERFORMANCE: Culling horizontal (desactivar renderizado fuera de pantalla)
-        this._cards.forEach((card, idx) => {
-            const distance = Math.abs(idx - this._index);
-            card.visible = distance <= 5;
+        // Ventana de Virtualización
+        const startIdx = Math.max(0, this._index - 3);
+        const endIdx = Math.min(this._channelData.length - 1, this._index + 7);
+
+        this._cardsPool.forEach(card => {
+            if (card._currentDataIdx !== -1 && (card._currentDataIdx < startIdx || card._currentDataIdx > endIdx)) {
+                card.alpha = 0;
+                card._currentDataIdx = -1;
+                card.x = -9999;
+            }
         });
+
+        for (let i = startIdx; i <= endIdx; i++) {
+            const data = this._channelData[i];
+            const poolIndex = i % this._poolSize;
+            const card = this._cardsPool[poolIndex];
+
+            if (card._currentDataIdx !== i) {
+                card.patch({
+                    x: data.x,
+                    w: data.w,
+                    alpha: 1,
+                    item: {
+                        channel: data.channel,
+                        isExpanded: this._expandedChannels && this._expandedChannels.has(data.channel.ChannelName),
+                        isLiveGroup: this._isLiveGroup,
+                        failedVideos: this._failedVideos,
+                        ...this._callbacks
+                    }
+                });
+                card._currentDataIdx = i;
+            }
+        }
     }
 
     _getFocused() {
-        return this._cards[this._index];
+        if (!this._channelData || this._channelData.length === 0) return this;
+        const poolIndex = this._index % this._poolSize;
+        return this._cardsPool[poolIndex];
     }
 }

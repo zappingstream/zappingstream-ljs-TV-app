@@ -37,19 +37,16 @@ class DayButton extends Lightning.Component {
             this.patch({
                 color: COLORS.ACCENT_BLUE,
                 Label: { text: { textColor: COLORS.BG_BLACK } },
-                smooth: { scale: 1.1 }
             });
         } else if (this._isSelected) {
             this.patch({
                 color: COLORS.ACCENT_BLUE,
                 Label: { text: { textColor: COLORS.BG_BLACK } },
-                smooth: { scale: 1.0 }
             });
         } else {
             this.patch({
                 color: COLORS.BG_PANEL,
                 Label: { text: { textColor: COLORS.TEXT_WHITE } },
-                smooth: { scale: 1.0 }
             });
         }
     }
@@ -68,25 +65,27 @@ class DayButton extends Lightning.Component {
 class EpgEvent extends Lightning.Component {
     static _template() {
         return {
-            w: 380, h: 400,
+            w: 380, h: 320,
             rect: true,
             color: COLORS.BG_DARK,
             shader: { type: Lightning.shaders.RoundedRectangle, radius: BORDER_RADIUS.LARGE },
-            TimeBadge: {
-                y: 12, x: 12, h: 36, rect: true, color: COLORS.BG_PANEL,
-                shader: { type: Lightning.shaders.RoundedRectangle, radius: BORDER_RADIUS.MEDIUM },
-                Label: {
-                    x: 12, mountY: 0.5, y: 20,
-                    text: { text: '', fontSize: 20, fontFace: TYPOGRAPHY.FONT_FAMILY, textColor: COLORS.TEXT_WHITE }
-                }
-            },
+            clipping: true,
             VideoWrapper: {
-                y: 60, w: 380, h: 214,
+                y: 0, x: 0, w: 380, h: 214,
                 type: VideoCard
             },
+            TimeBadge: {
+                y: 12, x: 12, h: 32, rect: true, color: 0xd9000000,
+                shader: { type: Lightning.shaders.RoundedRectangle, radius: BORDER_RADIUS.MEDIUM },
+                zIndex: 2,
+                Label: {
+                    x: 12, mountY: 0.5, y: 17,
+                    text: { text: '', fontSize: 18, fontFace: TYPOGRAPHY.FONT_FAMILY, textColor: COLORS.TEXT_WHITE }
+                }
+            },
             Title: {
-                y: 290, x: 16, w: 348,
-                text: { text: '', fontSize: 24, fontFace: TYPOGRAPHY.FONT_FAMILY, textColor: COLORS.TEXT_WHITE, maxLines: 3, textOverflow: 'ellipsis', wordWrapWidth: 348, lineHeight: 30 }
+                y: 230, x: 16, w: 348,
+                text: { text: '', fontSize: 22, fontFace: TYPOGRAPHY.FONT_FAMILY, textColor: COLORS.TEXT_WHITE, maxLines: 2, textOverflow: 'ellipsis', wordWrapWidth: 348, lineHeight: 28 }
             }
         };
     }
@@ -136,7 +135,6 @@ class EpgEvent extends Lightning.Component {
 
     _focus() {
         this.patch({
-            smooth: { scale: 1.05 },
             color: COLORS.BG_PANEL,
             shader: { type: Lightning.shaders.RoundedRectangle, radius: BORDER_RADIUS.LARGE, stroke: 4, strokeColor: COLORS.ACCENT_BLUE },
             zIndex: 10
@@ -144,7 +142,6 @@ class EpgEvent extends Lightning.Component {
     }
     _unfocus() {
         this.patch({
-            smooth: { scale: 1.0 },
             color: COLORS.BG_DARK,
             shader: { type: Lightning.shaders.RoundedRectangle, radius: BORDER_RADIUS.LARGE, stroke: 0 },
             zIndex: 1
@@ -163,19 +160,19 @@ class EpgEvent extends Lightning.Component {
 class EpgRow extends Lightning.Component {
     static _template() {
         return {
-            w: 1920, h: 460, // Altura fija de la fila
+            w: 1920, h: 360, // Altura fija de la fila
             Sidebar: {
-                w: 180, h: 440, rect: true, color: COLORS.BG_BLACK,
+                w: 180, h: 340, rect: true, color: COLORS.BG_BLACK,
                 Logo: { x: 50, y: 30, w: COMPONENT_SIZE.LOGO_MEDIUM, h: COMPONENT_SIZE.LOGO_MEDIUM, shader: { type: Lightning.shaders.RoundedRectangle, radius: BORDER_RADIUS.CIRCLE } },
                 Name: { x: 10, y: 130, w: 160, text: { text: '', fontSize: 24, fontFace: TYPOGRAPHY.FONT_FAMILY, textColor: COLORS.ACCENT_BLUE, wordWrapWidth: 160, maxLines: 2, textAlign: 'center', lineHeight: 32 } },
                 InfoBtn: {
-                    x: 30, y: 280, w: 120, h: 54, rect: true, color: COLORS.BG_PANEL, shader: { type: Lightning.shaders.RoundedRectangle, radius: BORDER_RADIUS.PILL },
+                    x: 30, y: 240, w: 120, h: 54, rect: true, color: COLORS.BG_PANEL, shader: { type: Lightning.shaders.RoundedRectangle, radius: BORDER_RADIUS.PILL },
                     Label: { mount: 0.5, x: 60, y: 29, text: { text: 'Info', fontSize: 22, fontFace: TYPOGRAPHY.FONT_FAMILY, textColor: COLORS.TEXT_WHITE } }
                 }
             },
             // Slider horizontal de videos
             TrackBounds: {
-                x: 200, y: -10, w: 1720, h: 480, clipping: true,
+                x: 200, y: -10, w: 1720, h: 380, clipping: true,
                 Slider: { x: 0, y: 10, Items: {} }
             }
         };
@@ -183,10 +180,23 @@ class EpgRow extends Lightning.Component {
 
     _construct() {
         this._index = 1; // 0 = InfoBtn (Sidebar), 1 a N = Eventos
-        this._events = [];
+        this._poolSize = 10;
+        this._eventsPool = null;
+    }
+
+    _createPool() {
+        if (!this._eventsPool) {
+            const items = [];
+            for (let i = 0; i < this._poolSize; i++) {
+                items.push({ type: EpgEvent, alpha: 0, x: -9999 });
+            }
+            this.tag('TrackBounds.Slider.Items').children = items;
+            this._eventsPool = this.tag('TrackBounds.Slider.Items').children;
+        }
     }
 
     set item(data) {
+        const isSameChannel = this._item && this._item.row.channel.ChannelName === data.row.channel.ChannelName;
         this._item = data;
         const { row, navigateYouTube, onVideoError, toggleInfo } = data;
 
@@ -195,25 +205,27 @@ class EpgRow extends Lightning.Component {
         this.tag('Sidebar.Name').text.text = row.channel.ChannelName;
         this._toggleInfo = () => toggleInfo(row.channel.ChannelName);
 
-        // Poblar Eventos
-        let currentX = 0;
-        const items = [];
-
-        row.events.forEach((ev, idx) => {
-            items.push({
-                type: EpgEvent,
-                x: currentX,
-                item: { ev, navigateYouTube, onVideoError }
-            });
-            currentX += 400; // 380 de ancho + 20 de gap
-        });
-
-        this.tag('TrackBounds.Slider.Items').children = items;
-        this._events = this.tag('TrackBounds.Slider.Items').children;
+        this._eventsData = row.events;
+        this._createPool();
 
         // Auto-focus al primer video en vivo si existe, sino al primero normal
         const liveIndex = row.events.findIndex(e => e.Live);
-        this._index = liveIndex !== -1 ? (liveIndex + 1) : 1;
+        const defaultIndex = liveIndex !== -1 ? (liveIndex + 1) : 1;
+
+        if (isSameChannel) {
+            if (this._index > row.events.length) {
+                this._index = row.events.length;
+            }
+        } else {
+            this._index = defaultIndex;
+        }
+
+        this._eventsPool.forEach(ev => {
+            ev._currentDataIdx = -1;
+            ev.alpha = 0;
+            ev.x = -9999;
+        });
+
         this._updateScroll(true); // true = sin animación inicial
     }
 
@@ -228,7 +240,7 @@ class EpgRow extends Lightning.Component {
     }
 
     _handleRight() {
-        if (this._index < this._events.length) { // length es N, index llega hasta N
+        if (this._eventsData && this._index < this._eventsData.length) {
             this._index++;
             this._updateScroll();
             this._refocus();
@@ -254,24 +266,46 @@ class EpgRow extends Lightning.Component {
                 targetX = -(evIndex * 400) + 60; // Desplazar exacto dejando 60px de margen respecto a la columna
             }
 
-            if (instant) {
-                this.tag('TrackBounds.Slider').x = targetX;
-            } else {
-                this.tag('TrackBounds.Slider').patch({ smooth: { x: targetX } });
-            }
+            this.tag('TrackBounds.Slider').x = targetX;
         }
 
-        // PERFORMANCE: Culling horizontal en EpgRow (desconectar de la GPU lo lejano)
-        const safeEvIndex = Math.max(0, this._index - 1);
-        this._events.forEach((ev, idx) => {
-            const distance = Math.abs(idx - safeEvIndex);
-            ev.visible = distance <= 5; // Mostrar solo 5 videos a la izquierda/derecha
+        // Virtualización Horizontal
+        if (!this._eventsData || this._eventsData.length === 0) return;
+
+        const evIndex = Math.max(0, this._index - 1);
+        const startIdx = Math.max(0, evIndex - 2);
+        const endIdx = Math.min(this._eventsData.length - 1, evIndex + 5);
+
+        this._eventsPool.forEach(ev => {
+            if (ev._currentDataIdx !== -1 && (ev._currentDataIdx < startIdx || ev._currentDataIdx > endIdx)) {
+                ev.alpha = 0;
+                ev._currentDataIdx = -1;
+                ev.x = -9999;
+            }
         });
+
+        for (let i = startIdx; i <= endIdx; i++) {
+            const data = this._eventsData[i];
+            const poolIndex = i % this._poolSize;
+            const evComponent = this._eventsPool[poolIndex];
+
+            if (evComponent._currentDataIdx !== i) {
+                evComponent.patch({
+                    x: i * 400,
+                    alpha: 1,
+                    item: { ev: data, navigateYouTube: this._item.navigateYouTube, onVideoError: this._item.onVideoError }
+                });
+                evComponent._currentDataIdx = i;
+            }
+        }
     }
 
     _getFocused() {
         if (this._index === 0) return this; // La propia fila captura enter si estamos en el InfoBtn
-        return this._events[this._index - 1]; // Delegamos al EpgEvent
+        if (!this._eventsData || this._eventsData.length === 0) return this;
+        const evIndex = this._index - 1;
+        const poolIndex = evIndex % this._poolSize;
+        return this._eventsPool[poolIndex];
     }
 
     _handleEnter() {
@@ -315,7 +349,7 @@ export default class ScheduleGrid extends Lightning.Component {
         this._dayIndex = 0; // Indice del día seleccionado visualmente
         this._failedVideos = new Set();
         this._failedChannels = new Set();
-        this._rowsComponents = [];
+        this._rowsComponents = null; // Lo inicializamos null
 
         // Configuración de los 15 días (-7 a +7)
         this._today = new Date();
@@ -434,32 +468,27 @@ export default class ScheduleGrid extends Lightning.Component {
         });
 
         rowsData.sort((a, b) => a.channel.ChannelName.localeCompare(b.channel.ChannelName));
+        this._rowsData = rowsData; // Guardamos ref para virtualizar
 
         // Dibujar Filas
         this.tag('NoEventsMsg').alpha = rowsData.length === 0 ? 1 : 0;
 
-        let currentY = 0;
-        const rowItems = [];
+        if (!this._rowsComponents) {
+            this._poolSize = 8;
+            const rowItems = [];
+            for (let i = 0; i < this._poolSize; i++) {
+                rowItems.push({ type: EpgRow, alpha: 0, y: -9999 });
+            }
+            this.tag('EpgContainerBounds.Slider.Items').children = rowItems;
+            this._rowsComponents = this.tag('EpgContainerBounds.Slider.Items').children;
+        }
 
-        rowsData.forEach(row => {
-            rowItems.push({
-                type: EpgRow,
-                y: currentY,
-                item: {
-                    row,
-                    navigateYouTube: this._navigateYouTube,
-                    toggleInfo: this._toggleInfo,
-                    onVideoError: (videoId) => {
-                        this._failedVideos.add(videoId);
-                        this._buildGrid(); // Re-renderizar
-                    }
-                }
-            });
-            currentY += 460; // Altura de fila
+        // Resetear pool para forzar render
+        this._rowsComponents.forEach(row => {
+            row._currentDataIdx = -1;
+            row.alpha = 0;
+            row.y = -9999;
         });
-
-        this.tag('EpgContainerBounds.Slider.Items').children = rowItems;
-        this._rowsComponents = this.tag('EpgContainerBounds.Slider.Items').children;
 
         // Actualizar visualmente la selección de días
         if (this._dayButtons) {
@@ -469,8 +498,8 @@ export default class ScheduleGrid extends Lightning.Component {
         }
 
         // Ajustar el foco si nos quedamos sin filas por el filtrado
-        if (this._focusY > this._rowsComponents.length) {
-            this._focusY = this._rowsComponents.length;
+        if (this._focusY > this._rowsData.length) {
+            this._focusY = this._rowsData.length;
         }
         this._updateScrollVertical();
     }
@@ -493,7 +522,7 @@ export default class ScheduleGrid extends Lightning.Component {
     }
 
     _handleDown() {
-        if (this._focusY < this._rowsComponents.length) {
+        if (this._rowsData && this._focusY < this._rowsData.length) {
             this._focusY++;
             this._updateScrollVertical();
             this._refocus();
@@ -505,7 +534,7 @@ export default class ScheduleGrid extends Lightning.Component {
     _handleLeft() {
         if (this._focusY === 0 && this._dayIndex > 0) {
             this._dayIndex--;
-            this.tag('DaysRailBounds.Slider').patch({ smooth: { x: -(this._dayIndex * 212) + 500 } });
+            this.tag('DaysRailBounds.Slider').x = -(this._dayIndex * 212) + 500;
             this._refocus();
             return true;
         }
@@ -515,7 +544,7 @@ export default class ScheduleGrid extends Lightning.Component {
     _handleRight() {
         if (this._focusY === 0 && this._dayIndex < this._dayButtons.length - 1) {
             this._dayIndex++;
-            this.tag('DaysRailBounds.Slider').patch({ smooth: { x: -(this._dayIndex * 212) + 500 } });
+            this.tag('DaysRailBounds.Slider').x = -(this._dayIndex * 212) + 500;
             this._refocus();
             return true;
         }
@@ -523,33 +552,63 @@ export default class ScheduleGrid extends Lightning.Component {
     }
 
     _updateScrollVertical() {
+        const rowIndex = Math.max(0, this._focusY - 1);
+
         if (this._focusY > 0) {
-            const rowIndex = this._focusY - 1;
-            // Desplazar contenedor EPG hacia arriba cuando bajamos de la fila 2
             let targetY = 0;
             if (rowIndex > 1) {
-                targetY = -((rowIndex - 1) * 460); // Altura de fila: 460px
+                targetY = -((rowIndex - 1) * 360); // Altura de fila: 360px
             }
-            this.tag('EpgContainerBounds.Slider').patch({ smooth: { y: targetY } });
-
-            // PERFORMANCE: Culling vertical (ocultar filas lejanas)
-            this._rowsComponents.forEach((row, idx) => {
-                const distance = Math.abs(idx - rowIndex);
-                row.visible = distance <= 3; // Mostrar solo 3 filas hacia arriba/abajo
-            });
+            this.tag('EpgContainerBounds.Slider').y = targetY;
         } else {
-            // Si el foco está en el selector de días, renderizamos las primeras filas
-            this._rowsComponents.forEach((row, idx) => {
-                row.visible = idx <= 3;
-            });
+            this.tag('EpgContainerBounds.Slider').y = 0;
+        }
+
+        // Virtualización vertical
+        if (!this._rowsData || this._rowsData.length === 0) return;
+
+        const startIdx = Math.max(0, rowIndex - 2);
+        const endIdx = Math.min(this._rowsData.length - 1, rowIndex + 4);
+
+        this._rowsComponents.forEach(row => {
+            if (row._currentDataIdx !== -1 && (row._currentDataIdx < startIdx || row._currentDataIdx > endIdx)) {
+                row.alpha = 0;
+                row._currentDataIdx = -1;
+                row.y = -9999;
+            }
+        });
+
+        for (let i = startIdx; i <= endIdx; i++) {
+            const data = this._rowsData[i];
+            const poolIndex = i % this._poolSize;
+            const row = this._rowsComponents[poolIndex];
+
+            if (row._currentDataIdx !== i) {
+                row.patch({
+                    y: i * 360,
+                    alpha: 1,
+                    item: {
+                        row: data,
+                        navigateYouTube: this._navigateYouTube,
+                        toggleInfo: this._toggleInfo,
+                        onVideoError: (videoId) => {
+                            this._failedVideos.add(videoId);
+                            this._buildGrid(); 
+                        }
+                    }
+                });
+                row._currentDataIdx = i;
+            }
         }
     }
 
     _getFocused() {
         if (this._focusY === 0) {
             return this._dayButtons[this._dayIndex]; // Selector de Días
-        } else if (this._rowsComponents.length > 0) {
-            return this._rowsComponents[this._focusY - 1]; // EpgRow específico
+        } else if (this._rowsData && this._rowsData.length > 0) {
+            const dataIdx = this._focusY - 1;
+            const poolIndex = dataIdx % this._poolSize;
+            return this._rowsComponents[poolIndex];
         }
         return this;
     }
